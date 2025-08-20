@@ -1,41 +1,39 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    IMAGE = "hariviswanathb/devops-demo"   // replace with your Docker Hub username
-  }
-
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    environment {
+        IMAGE = "hariviswanathb/devops-demo"
     }
 
-    stage('Build Docker image') {
-      steps {
-        sh '''
-          docker build -t $IMAGE:$BUILD_NUMBER .
-          docker tag $IMAGE:$BUILD_NUMBER $IMAGE:latest
-        '''
-      }
-    }
-
-    stage('Push to Docker Hub') {
-      steps {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-          sh '''
-            echo "$PASS" | docker login -u "$USER" --password-stdin
-            docker push $IMAGE:$BUILD_NUMBER
-            docker push $IMAGE:latest
-            docker logout || true
-          '''
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/HariviswanathB/devops-demo.git',
+                    credentialsId: 'github-creds'
+            }
         }
-      }
-    }
-  }
 
-  post {
-    always {
-      sh 'docker image prune -f || true'
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build("${IMAGE}:${BUILD_NUMBER}")
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                      docker push ${IMAGE}:${BUILD_NUMBER}
+                      docker tag ${IMAGE}:${BUILD_NUMBER} ${IMAGE}:latest
+                      docker push ${IMAGE}:latest
+                    """
+                }
+            }
+        }
     }
-  }
 }
+
