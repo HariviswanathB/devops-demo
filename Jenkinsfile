@@ -2,38 +2,35 @@ pipeline {
     agent any
 
     environment {
-        IMAGE = "hariviswanathb/devops-demo"
+        DOCKER_IMAGE = "hariviswanathb/devops-demo"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'main',
-                    url: 'https://github.com/HariviswanathB/devops-demo.git',
-                    credentialsId: 'github-creds'
+                    url: 'https://github.com/HariviswanathB/devops-demo.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${IMAGE}:${BUILD_NUMBER}")
+                    app = docker.build("${DOCKER_IMAGE}:latest")
                 }
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh """
-                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                      docker push ${IMAGE}:${BUILD_NUMBER}
-                      docker tag ${IMAGE}:${BUILD_NUMBER} ${IMAGE}:latest
-                      docker push ${IMAGE}:latest
-                    """
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', 'docker-creds') {
+                        app.push()
+                    }
                 }
             }
         }
     }
 }
+
 
